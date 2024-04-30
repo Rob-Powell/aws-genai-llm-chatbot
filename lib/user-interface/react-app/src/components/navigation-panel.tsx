@@ -44,6 +44,19 @@ export default function NavigationPanel() {
       },
     ];
 
+      items.push({
+        type: "section",
+        text: "Prompt Engineering",
+        items: [
+          { type: "link", text: "Dashboard", href: "/prompts" },
+          {
+            type: "link",
+            text: "Prompt Library",
+            href: "/prompts/library",
+          },
+          ]
+      });
+
     if (appContext?.config.rag_enabled) {
       const crossEncodersItems: SideNavigationProps.Item[] = appContext?.config
         .cross_encoders_enabled

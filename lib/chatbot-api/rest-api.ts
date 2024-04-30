@@ -58,6 +58,7 @@ export class ApiResolvers extends Construct {
         environment: {
           ...props.shared.defaultEnvironmentVariables,
           CONFIG_PARAMETER_NAME: props.shared.configParameter.parameterName,
+          DYNAMODB_PROMPTS_TABLE_ARN: props.shared.promptsDynamoTable.tableArn,
           MODELS_PARAMETER_NAME: props.modelsParameter.parameterName,
           X_ORIGIN_VERIFY_SECRET_ARN:
             props.shared.xOriginVerifySecret.secretArn,
@@ -117,6 +118,9 @@ export class ApiResolvers extends Construct {
     );
 
     function addPermissions(apiHandler: lambda.Function) {
+
+      props.shared.promptsDynamoTable.grantReadWriteData(apiHandler);
+
       if (props.ragEngines?.workspacesTable) {
         props.ragEngines.workspacesTable.grantReadWriteData(apiHandler);
       }

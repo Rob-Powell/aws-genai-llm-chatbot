@@ -10,6 +10,7 @@ import { Layer } from "../layer";
 import { SystemConfig, SupportedBedrockRegion } from "./types";
 import { SharedAssetBundler } from "./shared-asset-bundler";
 import { NagSuppressions } from "cdk-nag";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 
 const pythonRuntime = lambda.Runtime.PYTHON_3_11;
 const lambdaArchitecture = lambda.Architecture.X86_64;
@@ -31,6 +32,7 @@ export class Shared extends Construct {
   readonly powerToolsLayer: lambda.ILayerVersion;
   readonly sharedCode: SharedAssetBundler;
   readonly s3vpcEndpoint: ec2.InterfaceVpcEndpoint;
+  readonly promptsDynamoTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: SharedProps) {
     super(scope, id);
@@ -43,6 +45,55 @@ export class Shared extends Construct {
       POWERTOOLS_LOGGER_LOG_EVENT: "true",
       POWERTOOLS_SERVICE_NAME: "chatbot",
     };
+
+    this.promptsDynamoTable = new dynamodb.Table(this, 'promptData', {
+      partitionKey: {
+          name: 'entityId',
+          type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+          name: 'entityContextId',
+          type: dynamodb.AttributeType.STRING
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+      });
+    this.promptsDynamoTable.addGlobalSecondaryIndex({
+        indexName: "publicEntityIndex",
+        partitionKey: {
+            name: "publicEntity",
+            type: dynamodb.AttributeType.STRING
+        },
+        sortKey: {
+            name: "entityId",
+            type: dynamodb.AttributeType.STRING
+        },
+        projectionType: dynamodb.ProjectionType.ALL
+    })
+    this.promptsDynamoTable.addGlobalSecondaryIndex({
+        indexName: "publicEntityContextIndex",
+        partitionKey: {
+            name: "publicEntity",
+            type: dynamodb.AttributeType.STRING
+        },
+        sortKey: {
+            name: "entityContextId",
+            type: dynamodb.AttributeType.STRING
+        },
+        projectionType: dynamodb.ProjectionType.ALL
+    })
+    this.promptsDynamoTable.addGlobalSecondaryIndex({
+        indexName: "promptDetailVersionIndex",
+        partitionKey: {
+            name: "entityId",
+            type: dynamodb.AttributeType.STRING
+        },
+        sortKey: {
+            name: "version",
+            type: dynamodb.AttributeType.NUMBER
+        },
+        projectionType: dynamodb.ProjectionType.ALL
+    })
 
     let vpc: ec2.Vpc;
     if (!props.config.vpc?.vpcId) {
