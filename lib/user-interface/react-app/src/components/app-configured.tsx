@@ -5,6 +5,9 @@ import {
   ThemeProvider,
   defaultDarkModeOverride,
   useTheme,
+  Button,
+  Divider,
+  View,
 } from "@aws-amplify/ui-react";
 import App from "../app";
 import { Amplify, Auth, Hub } from "aws-amplify";
@@ -69,8 +72,14 @@ export default function AppConfigured() {
         const result = await fetch("/aws-exports.json");
         const awsExports = await result.json();
         const currentConfig = Amplify.configure(awsExports) as AppConfig | null;
+        
+        // Extract the query string from the current URL
+        const queryString = window.location.search;
+        
+        // Use URLSearchParams to work with the query string easily
+        const urlParams = new URLSearchParams(queryString);
 
-        if (currentConfig?.config.auth_federated_provider?.auto_redirect) {
+        if (currentConfig?.config.auth_federated_provider?.auto_redirect && urlParams.get('loginlocal') != 'true') {
           let authenticated = false;
           try {
             const user = await Auth.currentAuthenticatedUser();
@@ -182,18 +191,39 @@ export default function AppConfigured() {
       <UserContext.Provider
         value={{ setUserRole, userRole, setUserEmail, userEmail }}
       >
-        <ThemeProvider
-          theme={{
-            name: "default-theme",
-            overrides: [defaultDarkModeOverride],
-          }}
-          colorMode={theme === Mode.Dark ? "dark" : "light"}
-        >
-          <Authenticator
-            hideSignUp={true}
-            components={{
-              SignIn: {
-                Header: () => {
+      <ThemeProvider
+        theme={{
+          name: "default-theme",
+          overrides: [defaultDarkModeOverride],
+        }}
+        colorMode={theme === Mode.Dark ? "dark" : "light"}
+      >
+        <Authenticator
+          hideSignUp={true}
+          components={{
+            SignIn: {
+              Header: () => {
+                if (config.config.auth_federated_provider) {
+                  const signInWithCustomProvider = () => {
+                    Auth.federatedSignIn({ customProvider: config.config.auth_federated_provider?.name || "" });
+                  };
+                  return (
+                    <Heading
+                      padding={`${tokens.space.xl} 0 0 ${tokens.space.xl}`}
+                      level={3}
+                    >
+                      {CHATBOT_NAME}
+                      <View as="div" paddingTop="1rem" paddingBottom="1rem">
+                      <Button onClick={signInWithCustomProvider} variation="primary">
+                        Sign in with {config.config.auth_federated_provider?.name}
+                      </Button>
+                      </View>
+                      <Divider label="OR" />
+                    </Heading>
+                  );
+                }
+                else
+                {
                   return (
                     <Heading
                       padding={`${tokens.space.xl} 0 0 ${tokens.space.xl}`}
@@ -202,13 +232,14 @@ export default function AppConfigured() {
                       {CHATBOT_NAME}
                     </Heading>
                   );
-                },
+                }
               },
-            }}
-          >
-            <App />
-          </Authenticator>
-        </ThemeProvider>
+            },
+          }}
+        >
+          <App />
+        </Authenticator>
+      </ThemeProvider>
       </UserContext.Provider>
     </AppContext.Provider>
   );

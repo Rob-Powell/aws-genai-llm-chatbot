@@ -14,6 +14,14 @@ export interface AppConfig {
           custom: false;
           name: CognitoHostedUIIdentityProvider;
         };
+    oauth?:
+      {
+        domain: string;
+        redirectSignIn: string;
+        redirectSignOut: string;
+        Scopes: [];
+        responseType: string;
+      };
     rag_enabled: boolean;
     cross_encoders_enabled: boolean;
     sagemaker_embeddings_enabled: boolean;
@@ -21,6 +29,7 @@ export interface AppConfig {
     websocket_endpoint: string;
     default_embeddings_model: string;
     default_cross_encoder_model: string;
+    privateWebsite: boolean;
   };
   Storage: {
     AWSS3: {
@@ -45,7 +54,7 @@ export type RagDocumentType =
   | "rssfeed"
   | "rsspost";
 export type Modality = "TEXT" | "IMAGE";
-export type ModelInterface = "langchain" | "idefics";
+export type ModelInterface = "langchain" | "multimodal";
 
 export interface DocumentSubscriptionToggleResult {
   id: string;

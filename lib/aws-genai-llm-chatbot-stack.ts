@@ -11,7 +11,10 @@ import { LangChainInterface } from "./model-interfaces/langchain";
 import { IdeficsInterface } from "./model-interfaces/idefics";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as sns from "aws-cdk-lib/aws-sns";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as cr from 'aws-cdk-lib/custom-resources';
 import { NagSuppressions } from "cdk-nag";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 
 export interface AwsGenAILLMChatbotStackProps extends cdk.StackProps {
   readonly config: SystemConfig;
@@ -29,7 +32,7 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
     });
 
     const shared = new Shared(this, "Shared", { config: props.config });
-    const authentication = new Authentication(this, "Authentication");
+    const authentication = new Authentication(this, "Authentication", props.config);
     const models = new Models(this, "Models", {
       config: props.config,
       shared,
@@ -53,7 +56,7 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
     });
 
     // Langchain Interface Construct
-    // This is the model interface recieving messages from the websocket interface via the message topic
+    // This is the model interface receiving messages from the websocket interface via the message topic
     // and interacting with the model via LangChain library
     const langchainModels = models.models.filter(
       (model) => model.interface === ModelInterface.LangChain
@@ -100,53 +103,53 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
     }
 
     // IDEFICS Interface Construct
-    // This is the model interface recieving messages from the websocket interface via the message topic
+    // This is the model interface receiving messages from the websocket interface via the message topic
     // and interacting with IDEFICS visual language models
     const ideficsModels = models.models.filter(
-      (model) => model.interface === ModelInterface.Idefics
+      (model) => model.interface === ModelInterface.MultiModal
     );
 
     // check if any deployed model requires idefics interface
-    if (ideficsModels.length > 0) {
-      const ideficsInterface = new IdeficsInterface(this, "IdeficsInterface", {
-        shared,
-        config: props.config,
-        messagesTopic: chatBotApi.messagesTopic,
-        sessionsTable: chatBotApi.sessionsTable,
-        byUserIdIndex: chatBotApi.byUserIdIndex,
-        chatbotFilesBucket: chatBotApi.filesBucket,
-      });
 
-      // Route all incoming messages targeted to idefics to the idefics model interface queue
-      chatBotApi.messagesTopic.addSubscription(
-        new subscriptions.SqsSubscription(ideficsInterface.ingestionQueue, {
-          filterPolicyWithMessageBody: {
-            direction: sns.FilterOrPolicy.filter(
-              sns.SubscriptionFilter.stringFilter({
-                allowlist: [Direction.In],
-              })
-            ),
-            modelInterface: sns.FilterOrPolicy.filter(
-              sns.SubscriptionFilter.stringFilter({
-                allowlist: [ModelInterface.Idefics],
-              })
-            ),
-          },
-        })
-      );
+    const ideficsInterface = new IdeficsInterface(this, "IdeficsInterface", {
+      shared,
+      config: props.config,
+      messagesTopic: chatBotApi.messagesTopic,
+      sessionsTable: chatBotApi.sessionsTable,
+      byUserIdIndex: chatBotApi.byUserIdIndex,
+      chatbotFilesBucket: chatBotApi.filesBucket,
+    });
 
-      for (const model of models.models) {
-        // if model name contains idefics then add to idefics interface
-        if (model.interface === ModelInterface.Idefics) {
-          ideficsInterface.addSageMakerEndpoint(model);
-        }
+    // Route all incoming messages targeted to idefics to the idefics model interface queue
+    chatBotApi.messagesTopic.addSubscription(
+      new subscriptions.SqsSubscription(ideficsInterface.ingestionQueue, {
+        filterPolicyWithMessageBody: {
+          direction: sns.FilterOrPolicy.filter(
+            sns.SubscriptionFilter.stringFilter({
+              allowlist: [Direction.In],
+            })
+          ),
+          modelInterface: sns.FilterOrPolicy.filter(
+            sns.SubscriptionFilter.stringFilter({
+              allowlist: [ModelInterface.MultiModal],
+            })
+          ),
+        },
+      })
+    );
+
+    for (const model of models.models) {
+      // if model name contains idefics then add to idefics interface
+      if (model.interface === ModelInterface.MultiModal) {
+        ideficsInterface.addSageMakerEndpoint(model);
       }
     }
 
-    new UserInterface(this, "UserInterface", {
+    const userInterface = new UserInterface(this, "UserInterface", {
       shared,
       config: props.config,
       userPoolId: authentication.userPool.userPoolId,
+      userPoolClient: authentication.userPoolClient,
       userPoolClientId: authentication.userPoolClient.userPoolClientId,
       identityPool: authentication.identityPool,
       api: chatBotApi,
@@ -156,6 +159,50 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
       sagemakerEmbeddingsEnabled:
         typeof ragEngines?.sageMakerRagModels?.model !== "undefined",
     });
+    
+    if (props.config.cognitoFederation?.enabled) {
+      
+      const oAuthParams = {
+        scopes: ["email", "phone", "profile", "openid", "aws.cognito.signin.user.admin"],
+        customProviderName: props.config.cognitoFederation?.customProviderName,
+        customProviderType: props.config.cognitoFederation?.customProviderType,
+        callbackUrls: [`https://${userInterface.publishedDomain}`],
+        logoutUrls: [`https://${userInterface.publishedDomain}`] 
+      }
+  
+      const lambdaInvokePolicyStatement = new iam.PolicyStatement({
+        actions: ['lambda:InvokeFunction'],
+        resources: [authentication.updateUserPoolClient.functionArn], 
+      });
+      
+      // Create a Custom Resource to trigger the Lambda function
+      const customResource = new cr.AwsCustomResource(this, 'UpdateUserPoolClientCustomResource', {
+        onUpdate: {
+          service: 'Lambda',
+          action: 'invoke',
+          parameters: {
+            FunctionName: authentication.updateUserPoolClient.functionName,
+            Payload: JSON.stringify({
+              oAuthV: oAuthParams,
+            }),
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(authentication.userPoolClient.userPoolClientId),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([lambdaInvokePolicyStatement]),
+      });
+  
+      // Ensure the custom resource is created after the UserPoolClient and userInterface and federated provider setup
+      customResource.node.addDependency(authentication.updateUserPoolClient);
+      customResource.node.addDependency(userInterface);
+      if (props.config.cognitoFederation?.customProviderType == "OIDC")
+      {
+        customResource.node.addDependency(authentication.customOidcProvider);
+      }
+      if (props.config.cognitoFederation?.customProviderType == "SAML")
+      {
+        customResource.node.addDependency(authentication.customSamlProvider);
+      }
+    }
 
     /**
      * CDK NAG suppression
@@ -190,6 +237,10 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
         `/${this.stackName}/ChatBotApi/Realtime/Resolvers/lambda-resolver/ServiceRole/Resource`,
         `/${this.stackName}/ChatBotApi/Realtime/Resolvers/outgoing-message-handler/ServiceRole/Resource`,
         `/${this.stackName}/ChatBotApi/Realtime/Resolvers/outgoing-message-handler/ServiceRole/DefaultPolicy/Resource`,
+        `/${this.stackName}/IdeficsInterface/IdeficsInterfaceRequestHandler/ServiceRole/DefaultPolicy/Resource`,
+        `/${this.stackName}/IdeficsInterface/IdeficsInterfaceRequestHandler/ServiceRole/Resource`,
+        `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/CloudWatchRole/Resource`,
+        `/${this.stackName}/IdeficsInterface/S3IntegrationRole/DefaultPolicy/Resource`,
       ],
       [
         {
@@ -202,48 +253,27 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
         },
       ]
     );
-
-    if (ideficsModels.length > 0) {
-      NagSuppressions.addResourceSuppressionsByPath(
-        this,
-        [
-          `/${this.stackName}/IdeficsInterface/IdeficsInterfaceRequestHandler/ServiceRole/DefaultPolicy/Resource`,
-          `/${this.stackName}/IdeficsInterface/IdeficsInterfaceRequestHandler/ServiceRole/Resource`,
-          `/${this.stackName}/IdeficsInterface/S3IntegrationRole/DefaultPolicy/Resource`,
-        ],
-        [
-          {
-            id: "AwsSolutions-IAM4",
-            reason: "IAM role implicitly created by CDK.",
-          },
-          {
-            id: "AwsSolutions-IAM5",
-            reason: "IAM role implicitly created by CDK.",
-          },
-        ]
-      );
-      NagSuppressions.addResourceSuppressionsByPath(
-        this,
-        `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/DeploymentStage.prod/Resource`,
-        [
-          {
-            id: "AwsSolutions-APIG3",
-            reason: "WAF not required due to configured Cognito auth.",
-          },
-        ]
-      );
-      NagSuppressions.addResourceSuppressionsByPath(
-        this,
-        [
-          `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/Default/{object}/ANY/Resource`,
-          `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/Default/{object}/ANY/Resource`,
-        ],
-        [
-          { id: "AwsSolutions-APIG4", reason: "Private API within a VPC." },
-          { id: "AwsSolutions-COG4", reason: "Private API within a VPC." },
-        ]
-      );
-    }
+    NagSuppressions.addResourceSuppressionsByPath(
+      this,
+      `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/DeploymentStage.prod/Resource`,
+      [
+        {
+          id: "AwsSolutions-APIG3",
+          reason: "WAF not required due to configured Cognito auth.",
+        },
+      ]
+    );
+    NagSuppressions.addResourceSuppressionsByPath(
+      this,
+      [
+        `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/Default/{object}/ANY/Resource`,
+        `/${this.stackName}/IdeficsInterface/ChatbotFilesPrivateApi/Default/{object}/ANY/Resource`,
+      ],
+      [
+        { id: "AwsSolutions-APIG4", reason: "Private API within a VPC." },
+        { id: "AwsSolutions-COG4", reason: "Private API within a VPC." },
+      ]
+    );
 
     // RAG configuration
     if (props.config.rag.enabled) {
@@ -251,17 +281,21 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
         this,
         [
           `/${this.stackName}/RagEngines/DataImport/FileImportBatchJob/FileImportJobRole/DefaultPolicy/Resource`,
+          `/${this.stackName}/RagEngines/DataImport/WebCrawlerBatchJob/WebCrawlerJobRole/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/FileImportBatchJob/FileImportContainer/ExecutionRole/DefaultPolicy/Resource`,
+          `/${this.stackName}/RagEngines/DataImport/WebCrawlerBatchJob/WebCrawlerContainer/ExecutionRole/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/FileImportWorkflow/FileImportStateMachine/Role/DefaultPolicy/Resource`,
-          `/${this.stackName}/RagEngines/DataImport/WebsiteCrawlingWorkflow/WebsiteParserFunction/ServiceRole/Resource`,
-          `/${this.stackName}/RagEngines/DataImport/WebsiteCrawlingWorkflow/WebsiteParserFunction/ServiceRole/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/WebsiteCrawlingWorkflow/WebsiteCrawling/Role/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/UploadHandler/ServiceRole/Resource`,
           `/${this.stackName}/RagEngines/DataImport/UploadHandler/ServiceRole/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/Workspaces/DeleteWorkspace/DeleteWorkspaceFunction/ServiceRole/Resource`,
           `/${this.stackName}/RagEngines/Workspaces/DeleteWorkspace/DeleteWorkspaceFunction/ServiceRole/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/Workspaces/DeleteWorkspace/DeleteWorkspace/Role/DefaultPolicy/Resource`,
+          `/${this.stackName}/RagEngines/Workspaces/DeleteDocument/DeleteDocumentFunction/ServiceRole/Resource`,
+          `/${this.stackName}/RagEngines/Workspaces/DeleteDocument/DeleteDocumentFunction/ServiceRole/DefaultPolicy/Resource`,
+          `/${this.stackName}/RagEngines/Workspaces/DeleteDocument/DeleteDocument/Role/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/FileImportBatchJob/ManagedEc2EcsComputeEnvironment/InstanceProfileRole/Resource`,
+          `/${this.stackName}/RagEngines/DataImport/WebCrawlerBatchJob/WebCrawlerManagedEc2EcsComputeEnvironment/InstanceProfileRole/Resource`,
           `/${this.stackName}/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/Resource`,
           `/${this.stackName}/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/DefaultPolicy/Resource`,
           `/${this.stackName}/RagEngines/DataImport/RssSubscription/RssIngestor/ServiceRole/Resource`,
@@ -300,9 +334,18 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
             `/${this.stackName}/RagEngines/SageMaker/Model/MultiAB24A/Provider/framework-onTimeout/ServiceRole/Resource`,
             `/${this.stackName}/RagEngines/SageMaker/Model/MultiAB24A/Provider/framework-onTimeout/ServiceRole/DefaultPolicy/Resource`,
             `/${this.stackName}/RagEngines/SageMaker/Model/MultiAB24A/Provider/waiter-state-machine/Role/DefaultPolicy/Resource`,
+            `/${this.stackName}/RagEngines/SageMaker/Model/MultiAB24A/Provider/waiter-state-machine/Resource`,
             `/${this.stackName}/RagEngines/SageMaker/Model/MultiAB24A/SageMakerExecutionRole/DefaultPolicy/Resource`,
           ],
           [
+            {
+              id: "AwsSolutions-SF1",
+              reason: "SFN implicitly created by CDK.",
+            },
+            {
+              id: "AwsSolutions-SF2",
+              reason: "SFN implicitly created by CDK.",
+            },
             {
               id: "AwsSolutions-IAM4",
               reason: "IAM role implicitly created by CDK.",
@@ -371,7 +414,7 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
         NagSuppressions.addResourceSuppressionsByPath(
           this,
           [
-            `/${this.stackName}/RagEngines/KendraRetrieval/CreateAuroraWorkspace/CreateKendraWorkspace/Role/DefaultPolicy/Resource`,
+            `/${this.stackName}/RagEngines/KendraRetrieval/CreateKendraWorkspace/CreateKendraWorkspace/Role/DefaultPolicy/Resource`,
           ],
           [
             {
@@ -415,5 +458,54 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
         reason: "Not yet upgraded from Python 3.11 to 3.12.",
       },
     ]);
+
+    if (props.config.privateWebsite) {
+      const paths = [];
+      for (
+        let index = 0;
+        index < shared.vpc.availabilityZones.length;
+        index++
+      ) {
+        paths.push(
+          `/${this.stackName}/UserInterface/PrivateWebsite/DescribeNetworkInterfaces-${index}/CustomResourcePolicy/Resource`
+        );
+      }
+      paths.push(
+        `/${this.stackName}/UserInterface/PrivateWebsite/describeVpcEndpoints/CustomResourcePolicy/Resource`
+      );
+      NagSuppressions.addResourceSuppressionsByPath(this, paths, [
+        {
+          id: "AwsSolutions-IAM5",
+          reason:
+            "Custom Resource requires permissions to Describe VPC Endpoint Network Interfaces",
+        },
+      ]);
+      NagSuppressions.addResourceSuppressionsByPath(
+        this,
+        [
+          `/${this.stackName}/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource`,
+        ],
+        [
+          {
+            id: "AwsSolutions-IAM4",
+            reason: "IAM role implicitly created by CDK.",
+          },
+        ]
+      );
+    }
+    if (props.config.cognitoFederation?.enabled) {
+      NagSuppressions.addResourceSuppressionsByPath(
+        this,
+        [
+          `/${this.stackName}/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource`,
+        ],
+        [
+          {
+            id: "AwsSolutions-IAM4",
+            reason: "IAM role implicitly created by CDK.",
+          },
+        ]
+      );
+    }
   }
 }

@@ -136,13 +136,12 @@ export function updateMessageHistoryRef(
       messageHistory.at(-1)?.type !== ChatBotMessageType.Human
     ) {
       const lastMessage = messageHistory.at(-1)!;
-      lastMessage.tokens = lastMessage.tokens || [];
+      lastMessage.tokens = lastMessage.tokens ?? [];
       if (hasToken) {
         lastMessage.tokens.push(token);
       }
 
       lastMessage.tokens.sort((a, b) => a.sequenceNumber - b.sequenceNumber);
-      console.log(lastMessage);
       if (lastMessage.tokens.length > 0) {
         const lastRunId =
           lastMessage.tokens[lastMessage.tokens.length - 1].runId;
@@ -157,23 +156,19 @@ export function updateMessageHistoryRef(
         metadata = lastMessage.metadata;
       }
 
-      if (hasContent) {
+      if (hasContent || lastMessage.content.length > 0) {
         messageHistory[messageHistory.length - 1] = {
           ...lastMessage,
           type: ChatBotMessageType.AI,
-          content,
+          content: content ?? lastMessage.content,
           metadata,
           tokens: lastMessage.tokens,
         };
       } else {
-        const contentFromTokens = lastMessage.tokens
-          .map((c) => c.value)
-          .join("");
-
         messageHistory[messageHistory.length - 1] = {
           ...lastMessage,
           type: ChatBotMessageType.AI,
-          content: contentFromTokens,
+          content: "",
           metadata,
           tokens: lastMessage.tokens,
         };

@@ -32,6 +32,8 @@ export interface ChatMessageProps {
   message: ChatBotHistoryItem;
   configuration?: ChatBotConfiguration;
   showMetadata?: boolean;
+  onThumbsUp: () => void;
+  onThumbsDown: () => void;
 }
 
 export default function ChatMessage(props: ChatMessageProps) {
@@ -40,6 +42,7 @@ export default function ChatMessage(props: ChatMessageProps) {
   const [files, setFiles] = useState<ImageFile[]>([] as ImageFile[]);
   const [documentIndex, setDocumentIndex] = useState("0");
   const [promptIndex, setPromptIndex] = useState("0");
+  const [selectedIcon, setSelectedIcon] = useState<1 | 0 | null>(null);
 
   useEffect(() => {
     const getSignedUrls = async () => {
@@ -63,6 +66,11 @@ export default function ChatMessage(props: ChatMessageProps) {
       getSignedUrls();
     }
   }, [message]);
+
+  const content =
+    props.message.content && props.message.content.length > 0
+      ? props.message.content
+      : props.message.tokens?.map((v) => v.value).join("");
 
   return (
     <div>
@@ -124,7 +132,10 @@ export default function ChatMessage(props: ChatMessageProps) {
                       ).map((p: any, i) => {
                         return {
                           id: `${i}`,
-                          label: p.metadata.path,
+                          label:
+                            p.metadata.path?.split("/").at(-1) ??
+                            p.metadata.title ??
+                            p.metadata.document_id.slice(-8),
                           content: (
                             <>
                               <Textarea
@@ -204,7 +215,7 @@ export default function ChatMessage(props: ChatMessageProps) {
             )
           }
         >
-          {props.message.content.length === 0 ? (
+          {content?.length === 0 ? (
             <Box>
               <Spinner />
             </Box>
@@ -233,11 +244,11 @@ export default function ChatMessage(props: ChatMessageProps) {
             </div>
           ) : null}
           <ReactMarkdown
-            children={props.message.content}
+            children={content}
             remarkPlugins={[remarkGfm]}
             components={{
               pre(props) {
-                const { children, className, node, ...rest } = props;
+                const { children, ...rest } = props;
                 return (
                   <pre {...rest} className={styles.codeMarkdown}>
                     {children}
@@ -270,6 +281,30 @@ export default function ChatMessage(props: ChatMessageProps) {
               },
             }}
           />
+          <div className={styles.thumbsContainer}>
+            {(selectedIcon === 1 || selectedIcon === null) && (
+              <Button
+                variant="icon"
+                iconName={selectedIcon === 1 ? "thumbs-up-filled" : "thumbs-up"}
+                onClick={() => {
+                  props.onThumbsUp();
+                  setSelectedIcon(1);
+                }}
+              />
+            )}
+            {(selectedIcon === 0 || selectedIcon === null) && (
+              <Button
+                iconName={
+                  selectedIcon === 0 ? "thumbs-down-filled" : "thumbs-down"
+                }
+                variant="icon"
+                onClick={() => {
+                  props.onThumbsDown();
+                  setSelectedIcon(0);
+                }}
+              />
+            )}
+          </div>
         </Container>
       )}
       {loading && (
@@ -285,6 +320,7 @@ export default function ChatMessage(props: ChatMessageProps) {
               href={file.url as string}
               target="_blank"
               rel="noreferrer"
+              style={{ marginLeft: "5px", marginRight: "5px" }}
             >
               <img
                 src={file.url as string}

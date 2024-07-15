@@ -38,16 +38,27 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Deploy', link: '/guide/deploy' },
-          { text: 'Developer Guide', link: '/guide/developers' }
+          { text: 'Developer Guide', link: '/guide/developers' },
+          { text: 'Development Prioritization', link: '/guide/prioritization' },
         ]
       },
       {
         text: 'Documentation',
         items: [
+          { text: 'Custom Public Domain', link: '/documentation/custom-public-domain' },
+          { text: 'Private Chatbot', link: '/documentation/private-chatbot' },
+          { text: 'Cognito Federation', items: [
+            { text: 'Cognito Overview', link: '/documentation/cognito/overview' },
+            { text: 'Keycloak SAML example', link: '/documentation/cognito/keycloak-saml' },
+            { text: 'Keycloak OIDC example', link: '/documentation/cognito/keycloak-oidc' },
+          ]},
           { text: 'Model Requirements', link: '/documentation/model-requirements' },
+          { text: 'Self-hosted models', link: '/documentation/self-hosted-models' },
           { text: 'Inference Script', link: '/documentation/inference-script' },
           { text: 'Document Retrieval', link: '/documentation/retriever' },
           { text: 'AppSync', link: '/documentation/appsync' },
+          { text: 'SageMaker Schedule', link: '/documentation/sagemaker-schedule' },
+          { text: 'CloudFront Geo Restriction', link: '/documentation/cf-geo-restriction' },
           { text: 'Security', link: '/documentation/vulnerability-scanning' },
           { text: 'Precautions', link: '/documentation/precautions' }
         ]

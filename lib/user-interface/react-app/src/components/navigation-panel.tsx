@@ -46,6 +46,11 @@ export default function NavigationPanel() {
           },
           {
             type: "link",
+            text: "Sessions",
+            href: "/chatbot/sessions",
+          },
+          {
+            type: "link",
             text: "Models",
             href: "/chatbot/models",
           },

@@ -38,11 +38,14 @@ export class IdeficsInterface extends Construct {
     // Create a private API to serve images and other files from S3
     // in order to avoid using signed URLs and run out of input tokens
     // with the idefics model
-    const vpcDefaultSecurityGroup = ec2.SecurityGroup.fromSecurityGroupId(
-      this,
-      "VPCDefaultSecurityGroup",
-      props.shared.vpc.vpcDefaultSecurityGroup
-    );
+    const defaultSecurityGroup = (props.config.vpc?.vpcId && props.config.vpc.vpcDefaultSecurityGroup) ?
+        props.config.vpc.vpcDefaultSecurityGroup : props.shared.vpc.vpcDefaultSecurityGroup;
+
+    const vpcDefaultSecurityGroup = defaultSecurityGroup ? ec2.SecurityGroup.fromSecurityGroupId(
+        this,
+        'VPCDefaultSecurityGroup',
+        defaultSecurityGroup
+    ) : ec2.SecurityGroup.fromLookupByName(this, 'VPCDefaultSecurityGroup', 'default', props.shared.vpc);
 
     const vpcEndpoint = props.shared.vpc.addInterfaceEndpoint(
       "PrivateApiEndpoint",
@@ -71,6 +74,7 @@ export class IdeficsInterface extends Construct {
         accessLogDestination: new apigateway.LogGroupLogDestination(logGroup),
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
       },
+      cloudWatchRole: true,
       binaryMediaTypes: ["*/*"],
       endpointConfiguration: {
         types: [apigateway.EndpointType.PRIVATE],
@@ -202,6 +206,13 @@ export class IdeficsInterface extends Construct {
     props.sessionsTable.grantReadWriteData(requestHandler);
     props.messagesTopic.grantPublish(requestHandler);
     props.shared.configParameter.grantRead(requestHandler);
+    requestHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: ["*"],
+        effect: iam.Effect.ALLOW,
+      })
+    );
 
     const deadLetterQueue = new sqs.Queue(this, "DLQ", {
       enforceSSL: true,

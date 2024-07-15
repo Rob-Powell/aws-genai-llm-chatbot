@@ -17,10 +17,13 @@ import {
   StatusIndicator,
   Table,
   Toggle,
+  Multiselect,
 } from "@cloudscape-design/components";
 import useOnFollow from "../../../common/hooks/use-on-follow";
 import BaseAppLayout from "../../../components/base-app-layout";
 import { useNavigate, useParams } from "react-router-dom";
+import { multiselectOptions, SelectOption } from "../add-data/types";
+import { generateSelectedOptions } from "../add-data/utils";
 import { useCallback, useContext, useEffect, useState } from "react";
 import { DocumentSubscriptionStatus, UserRole } from "../../../common/types";
 import { AppContext } from "../../../common/app-context";
@@ -391,6 +394,7 @@ export default function RssFeed() {
                       data={{
                         followLinks: rssCrawlerFollowLinks,
                         limit: rssCrawlerLimit,
+                        contentTypes: ["text/html"],
                       }}
                       documentId={rssSubscription?.id ?? ""}
                       workspaceId={workspace?.id ?? ""}
@@ -544,6 +548,7 @@ export function RssFeedPostUrlPopover(props: RssFeedPostUrlPopoverProps) {
   const item = props.item;
   const followLinks = item.crawlerProperties?.followLinks;
   const limit = item.crawlerProperties?.limit;
+  const contentTypes = item.crawlerProperties?.contentTypes;
   return (
     <Popover
       dismissButton={false}
@@ -579,6 +584,12 @@ export function RssFeedPostUrlPopover(props: RssFeedPostUrlPopoverProps) {
             <></>
           )}
           <div>
+            <Box variant="awsui-key-label">Content Types supported</Box>
+            <div>
+              <Badge color="blue">{contentTypes}</Badge>
+            </div>
+          </div>
+          <div>
             <Box>
               <Button target="_blank" href={item.path!}>
                 Visit Post
@@ -596,6 +607,7 @@ export function RssFeedPostUrlPopover(props: RssFeedPostUrlPopoverProps) {
 export interface RssFeedCrawlerData {
   followLinks: boolean;
   limit: number;
+  contentTypes: (string | undefined)[];
 }
 
 export interface RssFeedEditorProps {
@@ -616,6 +628,7 @@ export function RssFeedCrawlerForm(props: RssFeedEditorProps) {
         documentId: props.documentId,
         followLinks: props.data.followLinks,
         limit: props.data.limit,
+        contentTypes: props.data.contentTypes
       };
     },
     validate: (form) => {
@@ -623,21 +636,44 @@ export function RssFeedCrawlerForm(props: RssFeedEditorProps) {
       if (form.limit < 1 || form.limit > 1000) {
         errors.limit = "Page limit should be between 1 and 1000";
       }
+      if (form.contentTypes.length === 0) {
+        errors.contentTypes = "At least one content type must be selected.";
+      }
+
       return errors;
     },
   });
+  
+  
+  const handleContentTypeChange = (selectedOptions: ReadonlyArray<SelectOption>) => {
+    const options: SelectOption[] = selectedOptions.map(option => {
+      if (option.value === undefined) {
+        throw new Error(`Option value cannot be undefined`);
+      }
+      return {
+        label: option.label,
+        value: option.value,
+        description: option.description
+      };
+    });
+    onChange({ contentTypes: options.map(option => option.value) });
+  };
+
+  
   const onSubmit = async () => {
     if (!appContext) return;
     const validationResult = validate();
     if (!validationResult) return;
     props.setSubmitting(true);
+    const contentTypesToUse = data.contentTypes.filter((ct): ct is string => ct !== undefined);
     const apiClient = new ApiClient(appContext);
     try {
       await apiClient.documents.updateRssSubscriptionCrawler(
         props.workspaceId,
         props.documentId,
         data.followLinks,
-        data.limit
+        data.limit,
+        contentTypesToUse
       );
 
       props.setSubmitting(false);
@@ -698,6 +734,18 @@ export function RssFeedCrawlerForm(props: RssFeedEditorProps) {
             }
           />
         </FormField>
+            <FormField
+              label="Enabled Content Types"
+              errorText={errors.contentTypes}
+              description="Content Types to Enable for crawlingl"
+            >
+            <Multiselect
+              disabled={props.submitting}
+              selectedOptions={generateSelectedOptions(data.contentTypes)}
+              options={multiselectOptions}
+              onChange={({ detail }) => handleContentTypeChange(detail.selectedOptions)}
+            />
+            </FormField>
       </SpaceBetween>
     </Form>
   );

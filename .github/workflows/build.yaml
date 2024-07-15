@@ -1,5 +1,7 @@
 name: smoke-build
-on: push
+on: 
+  push:
+  pull_request:
 jobs:
   build-cdk:
     runs-on: ubuntu-latest
@@ -7,6 +9,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v3
         with:
-          node-version: "18"
-      - run: npm install
-      - run: npm run build
+          node-version: "20"
+      - name: Backend
+        run: |
+          npm install
+          npm run build
+          npx cdk synth
+      - name: Frontend
+        working-directory: ./lib/user-interface/react-app
+        run: |
+          npm install
+          npm run build

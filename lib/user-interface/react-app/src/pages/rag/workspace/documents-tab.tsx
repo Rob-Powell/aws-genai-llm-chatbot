@@ -13,8 +13,10 @@ import { AppContext } from "../../../common/app-context";
 import { ApiClient } from "../../../common/api-client/api-client";
 import { getColumnDefinition } from "./columns";
 import { Utils } from "../../../common/utils";
-import { DocumentsResult } from "../../../API";
 import { UserContext } from "../../../common/user-context";
+import { Document, DocumentsResult } from "../../../API";
+import DocumentDeleteModal from "../../../components/rag/document-delete-modal";
+
 export interface DocumentsTabProps {
   workspaceId?: string;
   documentType: RagDocumentType;
@@ -26,6 +28,14 @@ export default function DocumentsTab(props: DocumentsTabProps) {
   const [loading, setLoading] = useState(true);
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const [pages, setPages] = useState<(DocumentsResult | undefined)[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<
+    Document | undefined
+  >();
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
 
   const getDocuments = useCallback(
     async (params: { lastDocumentId?: string; pageIndex?: number }) => {
@@ -100,13 +110,55 @@ export default function DocumentsTab(props: DocumentsTabProps) {
     }
   };
 
+  const handleDelete = async (document: Document) => {
+    setDocumentToDelete(document);
+    setIsModalOpen(true);
+  };
+
+  const handleOnDeleteOfModal = () => {
+    if (documentToDelete?.id) {
+      handleConfirmDelete(documentToDelete.id);
+      setDocumentToDelete(undefined);
+      setIsModalOpen(false);
+    }
+  };
+
+  /* eslint-disable */
+  const handleConfirmDelete = async (documentId: string) => {
+    if (!appContext || !props.workspaceId) return;
+
+    const apiClient = new ApiClient(appContext);
+
+    try {
+      await apiClient.documents.deleteDocument(props.workspaceId, documentId);
+
+      setTimeout(async () => {
+        refreshPage();
+      }, 1500);
+    } catch (error) {
+      console.error("An error occurred while deleting the document:", error);
+    }
+  };
+
   const typeStr = ragDocumentTypeToString(props.documentType);
   const typeAddStr = ragDocumentTypeToAddString(props.documentType);
   const typeTitleStr = ragDocumentTypeToTitleString(props.documentType);
 
-  const columnDefinitions = getColumnDefinition(props.documentType);
+  const columnDefinitions = getColumnDefinition(
+    props.documentType,
+    handleDelete
+  );
 
   return (
+    <>
+      {isModalOpen && (
+        <DocumentDeleteModal
+          visible={isModalOpen}
+          onDelete={handleOnDeleteOfModal}
+          onDiscard={handleCloseModal}
+          document={documentToDelete}
+        />
+      )}
     <Table
       loading={loading}
       loadingText={`Loading ${typeStr}s`}
@@ -157,7 +209,8 @@ export default function DocumentsTab(props: DocumentsTabProps) {
           />
         )
       }
-    />
+      />
+    </>
   );
 }
 
