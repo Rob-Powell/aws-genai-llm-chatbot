@@ -23,15 +23,15 @@ import RssFeed from "./pages/rag/workspace/rss-feed";
 import { UserContext } from "./common/user-context";
 import NoUserRole from "./pages/no-user-role";
 import UsersDashboard from "./pages/admin/users/users-dashboard";
+import WorkspacePane from "./pages/rag/workspace/workspace";
+import Workspaces from "./pages/rag/workspaces/workspaces";
+import Welcome from "./pages/welcome";
+// import "./styles/app.scss";
+import SessionPage from "./pages/chatbot/sessions/sessions";
 
 function App() {
   const appContext = useContext(AppContext);
   const userContext = useContext(UserContext);
-  // import WorkspacePane from "./pages/rag/workspace/workspace";
-  // import Workspaces from "./pages/rag/workspaces/workspaces";
-  // import Welcome from "./pages/welcome";
-  // import "./styles/app.scss";
-  // import SessionPage from "./pages/chatbot/sessions/sessions";
   const Router = appContext?.config.privateWebsite ? HashRouter : BrowserRouter;
 
   return (
@@ -47,6 +47,7 @@ function App() {
               <Route path="/chatbot" element={<Outlet />}>
                 <Route path="playground" element={<Playground />} />
                 <Route path="playground/:sessionId" element={<Playground />} />
+                <Route path="sessions" element={<SessionPage />} />
                 <Route path="multichat" element={<MultiChatPlayground />} />
                 <Route path="models" element={<Models />} />
               </Route>
