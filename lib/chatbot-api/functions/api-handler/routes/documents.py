@@ -6,10 +6,12 @@ from pydantic import BaseModel
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler.appsync import Router
 from typing import Optional
+from genai_core.auth import UserPermissions
 
 tracer = Tracer()
 router = Router()
 logger = Logger()
+permissions = UserPermissions(router)
 
 
 class FileUploadRequest(BaseModel):
@@ -110,6 +112,9 @@ allowed_extensions = set(
 
 @router.resolver(field_name="getUploadFileURL")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def file_upload(input: dict):
     request = FileUploadRequest(**input)
     _, extension = os.path.splitext(request.fileName)
@@ -126,6 +131,13 @@ def file_upload(input: dict):
 
 @router.resolver(field_name="listDocuments")
 @tracer.capture_method
+@permissions.approved_roles(
+    [
+        permissions.ADMIN_ROLE,
+        permissions.WORKSPACES_MANAGER_ROLE,
+        permissions.WORKSPACES_USER_ROLE,
+    ]
+)
 def get_documents(input: dict):
     request = ListDocumentsRequest(**input)
     result = genai_core.documents.list_documents(
@@ -151,6 +163,13 @@ def delete_document(input: dict):
 
 @router.resolver(field_name="getDocument")
 @tracer.capture_method
+@permissions.approved_roles(
+    [
+        permissions.ADMIN_ROLE,
+        permissions.WORKSPACES_MANAGER_ROLE,
+        permissions.WORKSPACES_USER_ROLE,
+    ]
+)
 def get_document_details(input: dict):
     request = GetDocumentRequest(**input)
 
@@ -164,6 +183,13 @@ def get_document_details(input: dict):
 
 @router.resolver(field_name="getRSSPosts")
 @tracer.capture_method
+@permissions.approved_roles(
+    [
+        permissions.ADMIN_ROLE,
+        permissions.WORKSPACES_MANAGER_ROLE,
+        permissions.WORKSPACES_USER_ROLE,
+    ]
+)
 def get_rss_posts(input: dict):
     request = GetRssPostsRequest(**input)
 
@@ -182,7 +208,10 @@ def get_rss_posts(input: dict):
 
 @router.resolver(field_name="setDocumentSubscriptionStatus")
 @tracer.capture_method
-def enable_document(input: dict):
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
+def toggle_document_status(input: dict):
     request = DocumentSubscriptionStatusRequest(**input)
 
     if request.status not in ["enabled", "disabled"]:
@@ -205,6 +234,9 @@ def enable_document(input: dict):
 
 @router.resolver(field_name="addTextDocument")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def add_text_document(input: dict):
     request = TextDocumentRequest(**input)
     title = request.title.strip()[:1000]
@@ -224,6 +256,9 @@ def add_text_document(input: dict):
 
 @router.resolver(field_name="addQnADocument")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def add_qna_document(input: dict):
     request = QnADocumentRequest(**input)
     question = request.question.strip()[:1000]
@@ -244,6 +279,9 @@ def add_qna_document(input: dict):
 
 @router.resolver(field_name="addWebsite")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def add_website(input: dict):
     request = WebsiteDocumentRequest(**input)
 
@@ -271,6 +309,9 @@ def add_website(input: dict):
 
 @router.resolver(field_name="addRssFeed")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def add_rss_feed(
     input: dict,
 ):
@@ -298,6 +339,9 @@ def add_rss_feed(
 
 @router.resolver(field_name="updateRSSFeed")
 @tracer.capture_method
+@permissions.approved_roles(
+    [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
+)
 def update_rss_feed(input: dict):
     request = RssFeedDocumentRequest(**input)
     result = genai_core.documents.update_document(

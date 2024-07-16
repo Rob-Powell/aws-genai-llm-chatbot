@@ -5,11 +5,13 @@ from typing import List, Optional
 from pydantic import BaseModel
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler.appsync import Router
+from genai_core.auth import UserPermissions
 from genai_core.types import CommonError, Task
 
 tracer = Tracer()
 router = Router()
 logger = Logger()
+permissions = UserPermissions(router)
 
 
 class EmbeddingsRequest(BaseModel):
@@ -21,6 +23,13 @@ class EmbeddingsRequest(BaseModel):
 
 @router.resolver(field_name="listEmbeddingModels")
 @tracer.capture_method
+@permissions.approved_roles(
+    [
+        permissions.ADMIN_ROLE,
+        permissions.WORKSPACES_MANAGER_ROLE,
+        permissions.WORKSPACES_USER_ROLE,
+    ]
+)
 def models():
     models = genai_core.embeddings.get_embeddings_models()
 
@@ -29,6 +38,13 @@ def models():
 
 @router.resolver(field_name="calculateEmbeddings")
 @tracer.capture_method
+@permissions.approved_roles(
+    [
+        permissions.ADMIN_ROLE,
+        permissions.WORKSPACES_MANAGER_ROLE,
+        permissions.WORKSPACES_USER_ROLE,
+    ]
+)
 def embeddings(input: dict):
     request = EmbeddingsRequest(**input)
     selected_model = genai_core.embeddings.get_embeddings_model(
