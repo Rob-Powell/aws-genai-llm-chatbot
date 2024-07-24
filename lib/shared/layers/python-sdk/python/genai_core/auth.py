@@ -33,13 +33,15 @@ class UserPermissions:
     def __init__(self, router):
         self.router = router
 
-    def __get_user_role(self):
+    def __get_user_role(self, group_name=None):
         user_groups = (
             self.router.current_event.get("identity", {})
             .get("claims")
             .get("cognito:groups")
         )
         if user_groups is not None and len(user_groups) > 0:
+            if group_name and group_name in user_groups:
+                return group_name
             if self.ADMIN_ROLE in user_groups:
                 return self.ADMIN_ROLE
             elif self.WORKSPACES_MANAGER_ROLE in user_groups:
@@ -105,3 +107,32 @@ class UserPermissions:
             as the response.
         """
         return self.approved_roles([self.ADMIN_ROLE])(func)
+
+    def workspace_group_member(self):
+        """Validates the user calling the endpoint is a member of the specified workspace group
+        Returns:
+            function: If the user is a member of the group, the function being called will be returned for execution
+            dict: If the user is not a member of the group, a response of `{"error": "Workspace Unauthorized"}` will be returned
+            as the response.
+        """
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kargs):
+                workspace_id = getattr(func, 'workspaceId', None)
+                if workspace_id is None:
+                    workspace_id = kargs.get('workspaceId')
+                if workspace_id is None:
+                    if len(args) > 0 and isinstance(args[0], dict):
+                        workspace_id = args[0].get('workspaceId')
+                if workspace_id is None:
+                    raise genai_core.types.CommonError("Missing workspaceId")
+
+                user_role = self.__get_user_role(workspace_id)
+                if user_role == workspace_id:
+                    return func(*args, **kargs)
+                else:
+                    return {"error": "Workspace Unauthorized"}
+
+            return wrapper
+
+        return decorator

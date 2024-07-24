@@ -76,7 +76,7 @@ class CreateWorkspaceBedrockKBRequest(BaseModel):
     ]
 )
 def list_workspaces():
-    workspaces = genai_core.workspaces.list_workspaces()
+    workspaces = genai_core.workspaces.list_workspaces(router)
 
     ret_value = [_convert_workspace(workspace) for workspace in workspaces]
 
@@ -92,6 +92,7 @@ def list_workspaces():
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
+@permissions.workspace_group_member
 def get_workspace(workspaceId: str):
     workspace = genai_core.workspaces.get_workspace(workspaceId)
 
@@ -111,6 +112,7 @@ def get_workspace(workspaceId: str):
         permissions.WORKSPACES_MANAGER_ROLE,
     ]
 )
+@permissions.workspace_group_member
 def delete_workspace(workspaceId: str):
     genai_core.workspaces.delete_workspace(workspaceId)
 

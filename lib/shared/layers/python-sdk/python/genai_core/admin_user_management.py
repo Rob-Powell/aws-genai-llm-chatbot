@@ -183,3 +183,55 @@ def update_user_details(current_email, **kwargs):
 def reset_user_password(email):
     idp.admin_reset_user_password(UserPoolId=COGNITO_USER_POOL_ID, Username=email)
     return True
+
+def create_cognito_group(group_name):
+    try:
+        response = idp.create_group(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            GroupName=group_name
+        )
+        return response['Group']['GroupName']
+    except:
+        raise
+
+def delete_cognito_group(group_name):
+    try:
+        idp.delete_group(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            GroupName=group_name
+        )
+        return True
+    except:
+        raise
+
+def add_user_to_group(email, group_name):
+    try:
+        idp.admin_add_user_to_group(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            Username=email,
+            GroupName=group_name
+        )
+        return True
+    except:
+        raise
+
+def remove_user_from_group(email, group_name):
+    try:
+        idp.admin_remove_user_from_group(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            Username=email, 
+            GroupName=group_name
+        )
+        return True
+    except:
+        raise
+
+def is_user_in_group(email, group_name):
+    groups = idp.admin_list_groups_for_user(
+        UserPoolId=COGNITO_USER_POOL_ID,
+        Username=email
+    )['Groups']
+    for group in groups:
+        if group['GroupName'] == group_name:
+            return True
+    return False 

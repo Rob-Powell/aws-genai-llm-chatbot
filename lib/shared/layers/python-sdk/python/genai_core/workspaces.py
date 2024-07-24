@@ -6,6 +6,7 @@ import genai_core.embeddings
 from datetime import datetime
 from .types import WorkspaceStatus
 from genai_core.types import Task
+from genai_core.auth import get_user_id
 
 dynamodb = boto3.resource("dynamodb")
 sfn_client = boto3.client("stepfunctions")
@@ -31,10 +32,18 @@ if WORKSPACES_TABLE_NAME:
     table = dynamodb.Table(WORKSPACES_TABLE_NAME)
 
 
-def list_workspaces():
+def list_workspaces(router):
     all_items = []
     last_evaluated_key = None
 
+    user_id = get_user_id(router)
+    user_groups = (
+        router.current_event.get("identity", {})
+        .get("claims")
+        .get("cognito:groups", [])
+    )
+    is_admin = "chatbot_admin" in user_groups
+    is_manager = "chatbot_workspaces_manager" in user_groups
     while True:
         if last_evaluated_key:
             response = table.query(
@@ -60,7 +69,10 @@ def list_workspaces():
         if not last_evaluated_key:
             break
 
-    return all_items
+    if is_admin or is_manager:
+        return all_items
+    else:
+        return [item for item in all_items if f"workspace-{item['workspace_id']}" in user_groups]
 
 
 def get_workspace(workspace_id: str):
@@ -142,6 +154,7 @@ def create_workspace_aurora(
         "updated_at": timestamp,
     }
 
+    #genai_core.admin_user_management.add_user_to_group(creator_email, f"workspace-{workspace_id}")
     response = table.put_item(Item=item)
     print(response)
 
@@ -212,6 +225,7 @@ def create_workspace_open_search(
     response = table.put_item(Item=item)
     print(response)
 
+    #genai_core.admin_user_management.add_user_to_group(creator_email, f"workspace-{workspace_id}")
     response = sfn_client.start_execution(
         stateMachineArn=CREATE_OPEN_SEARCH_WORKSPACE_WORKFLOW_ARN,
         input=json.dumps(
@@ -252,6 +266,7 @@ def create_workspace_kendra(
         "updated_at": timestamp,
     }
 
+    #genai_core.admin_user_management.add_user_to_group(creator_email, f"workspace-{workspace_id}")
     response = table.put_item(Item=item)
     print(response)
 
