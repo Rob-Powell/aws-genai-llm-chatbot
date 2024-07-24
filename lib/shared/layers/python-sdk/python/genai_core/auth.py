@@ -1,5 +1,5 @@
 from functools import wraps
-
+import genai_core.types
 
 def get_user_id(router):
     user_id = router.current_event.get("identity", {}).get("sub")
@@ -125,7 +125,12 @@ class UserPermissions:
                     if len(args) > 0 and isinstance(args[0], dict):
                         workspace_id = args[0].get('workspaceId')
                 if workspace_id is None:
-                    raise genai_core.types.CommonError("Missing workspaceId")
+                    if len(kargs) > 0 and isinstance(kargs, dict):
+                        input_data = kargs.get('input')
+                        if input_data and isinstance(input_data, dict):
+                            workspace_id = input_data.get('workspaceId')
+                if workspace_id is None:
+                    raise genai_core.types.CommonError(f"Missing workspaceId {kargs}, {len(kargs)}")
 
                 user_role = self.__get_user_role(f"workspace-{workspace_id}")
                 if user_role == f"workspace-{workspace_id}":
