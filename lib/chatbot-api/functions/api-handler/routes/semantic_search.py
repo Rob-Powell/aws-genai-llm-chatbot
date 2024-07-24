@@ -24,7 +24,7 @@ class SemanticSearchRequest(BaseModel):
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def semantic_search(input: dict):
     request = SemanticSearchRequest(**input)
     if len(request.query) == 0 or len(request.query) > 1000:

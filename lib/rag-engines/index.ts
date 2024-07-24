@@ -1,6 +1,7 @@
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { Shared } from "../shared";
 import { SystemConfig } from "../shared/types";
@@ -15,6 +16,7 @@ import { Workspaces } from "./workspaces";
 export interface RagEnginesProps {
   readonly config: SystemConfig;
   readonly shared: Shared;
+  readonly userPool: cognito.UserPool;
 }
 
 export class RagEngines extends Construct {
@@ -57,6 +59,7 @@ export class RagEngines extends Construct {
         shared: props.shared,
         config: props.config,
         ragDynamoDBTables: tables,
+        userPool: props.userPool,
       });
     }
 
@@ -66,6 +69,7 @@ export class RagEngines extends Construct {
         shared: props.shared,
         config: props.config,
         ragDynamoDBTables: tables,
+        userPool: props.userPool,
       });
     }
 
@@ -75,6 +79,7 @@ export class RagEngines extends Construct {
         shared: props.shared,
         config: props.config,
         ragDynamoDBTables: tables,
+        userPool: props.userPool,
       });
     }
 
@@ -100,6 +105,7 @@ export class RagEngines extends Construct {
       auroraPgVector: auroraPgVector ?? undefined,
       openSearchVector: openSearchVector ?? undefined,
       kendraRetrieval: kendraRetrieval ?? undefined,
+      userPool: props.userPool,
     });
 
     this.auroraPgVector = auroraPgVector;

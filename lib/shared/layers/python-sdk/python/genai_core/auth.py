@@ -127,8 +127,8 @@ class UserPermissions:
                 if workspace_id is None:
                     raise genai_core.types.CommonError("Missing workspaceId")
 
-                user_role = self.__get_user_role(workspace_id)
-                if user_role == workspace_id:
+                user_role = self.__get_user_role(f"workspace-{workspace_id}")
+                if user_role == f"workspace-{workspace_id}":
                     return func(*args, **kargs)
                 else:
                     return {"error": "Workspace Unauthorized"}

@@ -1,6 +1,7 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as oss from "aws-cdk-lib/aws-opensearchserverless";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { Shared } from "../../shared";
 import { SystemConfig } from "../../shared/types";
@@ -12,6 +13,7 @@ export interface OpenSearchVectorProps {
   readonly config: SystemConfig;
   readonly shared: Shared;
   readonly ragDynamoDBTables: RagDynamoDBTables;
+  readonly userPool: cognito.UserPool;
 }
 
 export class OpenSearchVector extends Construct {
@@ -111,6 +113,7 @@ export class OpenSearchVector extends Construct {
         openSearchCollectionName: collectionName,
         openSearchCollection: cfnCollection,
         collectionEndpoint: cfnCollection.attrCollectionEndpoint,
+        userPool: props.userPool,
       }
     );
 

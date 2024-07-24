@@ -92,7 +92,7 @@ def list_workspaces():
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def get_workspace(workspaceId: str):
     workspace = genai_core.workspaces.get_workspace(workspaceId)
 
@@ -112,7 +112,7 @@ def get_workspace(workspaceId: str):
         permissions.WORKSPACES_MANAGER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def delete_workspace(workspaceId: str):
     genai_core.workspaces.delete_workspace(workspaceId)
 

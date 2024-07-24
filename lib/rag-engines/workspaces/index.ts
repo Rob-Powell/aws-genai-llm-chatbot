@@ -1,4 +1,5 @@
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { Shared } from "../../shared";
 import { SystemConfig } from "../../shared/types";
@@ -18,6 +19,7 @@ export interface WorkkspacesProps {
   readonly auroraPgVector?: AuroraPgVector;
   readonly openSearchVector?: OpenSearchVector;
   readonly kendraRetrieval?: KendraRetrieval;
+  readonly userPool: cognito.UserPool;
 }
 
 export class Workspaces extends Construct {
@@ -38,6 +40,7 @@ export class Workspaces extends Construct {
         auroraPgVector: props.auroraPgVector,
         openSearchVector: props.openSearchVector,
         kendraRetrieval: props.kendraRetrieval,
+        userPool: props.userPool,
       }
     );
 

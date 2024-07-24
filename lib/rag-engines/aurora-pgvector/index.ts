@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as cdk from "aws-cdk-lib";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { SystemConfig } from "../../shared/types";
 import { Shared } from "../../shared";
@@ -17,6 +18,7 @@ export interface AuroraPgVectorProps {
   readonly config: SystemConfig;
   readonly shared: Shared;
   readonly ragDynamoDBTables: RagDynamoDBTables;
+  readonly userPool: cognito.UserPool;
 }
 
 export class AuroraPgVector extends Construct {
@@ -91,6 +93,7 @@ export class AuroraPgVector extends Construct {
         shared: props.shared,
         dbCluster: dbCluster,
         ragDynamoDBTables: props.ragDynamoDBTables,
+        userPool: props.userPool,
       }
     );
 

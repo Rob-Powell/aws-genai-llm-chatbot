@@ -6,12 +6,14 @@ import { RagDynamoDBTables } from "../rag-dynamodb-tables";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { RemovalPolicy } from "aws-cdk-lib";
 
 export interface CreateKendraWorkspaceProps {
   readonly config: SystemConfig;
   readonly shared: Shared;
   readonly ragDynamoDBTables: RagDynamoDBTables;
+  readonly userPool: cognito.UserPool;
 }
 
 export class CreateKendraWorkspace extends Construct {

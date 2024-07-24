@@ -115,7 +115,7 @@ allowed_extensions = set(
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def file_upload(input: dict):
     request = FileUploadRequest(**input)
     _, extension = os.path.splitext(request.fileName)
@@ -139,7 +139,7 @@ def file_upload(input: dict):
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def get_documents(input: dict):
     request = ListDocumentsRequest(**input)
     result = genai_core.documents.list_documents(
@@ -172,7 +172,7 @@ def delete_document(input: dict):
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def get_document_details(input: dict):
     request = GetDocumentRequest(**input)
 
@@ -193,7 +193,7 @@ def get_document_details(input: dict):
         permissions.WORKSPACES_USER_ROLE,
     ]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def get_rss_posts(input: dict):
     request = GetRssPostsRequest(**input)
 
@@ -215,7 +215,7 @@ def get_rss_posts(input: dict):
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def toggle_document_status(input: dict):
     request = DocumentSubscriptionStatusRequest(**input)
 
@@ -242,7 +242,7 @@ def toggle_document_status(input: dict):
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def add_text_document(input: dict):
     request = TextDocumentRequest(**input)
     title = request.title.strip()[:1000]
@@ -265,7 +265,7 @@ def add_text_document(input: dict):
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def add_qna_document(input: dict):
     request = QnADocumentRequest(**input)
     question = request.question.strip()[:1000]
@@ -289,7 +289,7 @@ def add_qna_document(input: dict):
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def add_website(input: dict):
     request = WebsiteDocumentRequest(**input)
     address = request.address.strip()[:10000]
@@ -319,7 +319,7 @@ def add_website(input: dict):
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def add_rss_feed(
     input: dict,
 ):
@@ -350,7 +350,7 @@ def add_rss_feed(
 @permissions.approved_roles(
     [permissions.ADMIN_ROLE, permissions.WORKSPACES_MANAGER_ROLE]
 )
-@permissions.workspace_group_member
+@permissions.workspace_group_member()
 def update_rss_feed(input: dict):
     request = RssFeedDocumentRequest(**input)
     result = genai_core.documents.update_document(
