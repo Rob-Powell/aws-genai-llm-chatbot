@@ -184,11 +184,12 @@ def reset_user_password(email):
     idp.admin_reset_user_password(UserPoolId=COGNITO_USER_POOL_ID, Username=email)
     return True
 
-def create_cognito_group(group_name):
+def create_cognito_group(group_name, group_description=None):
     try:
         response = idp.create_group(
             UserPoolId=COGNITO_USER_POOL_ID,
-            GroupName=group_name
+            GroupName=group_name,
+            Description=group_description
         )
         return response['Group']['GroupName']
     except:

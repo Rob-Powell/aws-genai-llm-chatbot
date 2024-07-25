@@ -40,10 +40,10 @@ class UserPermissions:
             .get("cognito:groups")
         )
         if user_groups is not None and len(user_groups) > 0:
-            if group_name and group_name in user_groups:
-                return group_name
             if self.ADMIN_ROLE in user_groups:
                 return self.ADMIN_ROLE
+            if group_name and group_name in user_groups:
+                return group_name
             elif self.WORKSPACES_MANAGER_ROLE in user_groups:
                 return self.WORKSPACES_MANAGER_ROLE
             elif self.WORKSPACES_USER_ROLE in user_groups:
@@ -108,7 +108,7 @@ class UserPermissions:
         """
         return self.approved_roles([self.ADMIN_ROLE])(func)
 
-    def workspace_group_member(self):
+    def workspace_group_member(self, operation):
         """Validates the user calling the endpoint is a member of the specified workspace group
         Returns:
             function: If the user is a member of the group, the function being called will be returned for execution
@@ -130,10 +130,10 @@ class UserPermissions:
                         if input_data and isinstance(input_data, dict):
                             workspace_id = input_data.get('workspaceId')
                 if workspace_id is None:
-                    raise genai_core.types.CommonError(f"Missing workspaceId {kargs}, {len(kargs)}")
+                    raise genai_core.types.CommonError(f"Missing workspaceId {kargs}")
 
-                user_role = self.__get_user_role(f"workspace-{workspace_id}")
-                if user_role == f"workspace-{workspace_id}":
+                user_role = self.__get_user_role(f"workspace-{operation}-{workspace_id}")
+                if user_role == self.ADMIN_ROLE or user_role == f"workspace-{operation}-{workspace_id}":
                     return func(*args, **kargs)
                 else:
                     return {"error": "Workspace Unauthorized"}
