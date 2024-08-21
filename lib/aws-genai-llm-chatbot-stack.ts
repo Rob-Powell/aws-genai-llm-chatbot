@@ -48,6 +48,7 @@ export class AwsGenAILLMChatbotStack extends cdk.Stack {
       ragEngines = new RagEngines(this, "RagEngines", {
         shared,
         config: props.config,
+        userPool: authentication.userPool,
       });
     }
 

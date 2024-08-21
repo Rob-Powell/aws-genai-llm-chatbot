@@ -4,6 +4,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import * as path from "path";
 import { Shared } from "../../shared";
@@ -23,6 +24,7 @@ export interface DeleteWorkspaceProps {
   readonly auroraPgVector?: AuroraPgVector;
   readonly openSearchVector?: OpenSearchVector;
   readonly kendraRetrieval?: KendraRetrieval;
+  readonly userPool: cognito.UserPool;
 }
 
 export class DeleteWorkspace extends Construct {
@@ -67,6 +69,7 @@ export class DeleteWorkspace extends Construct {
             props.kendraRetrieval?.kendraS3DataSourceBucket?.bucketName ?? "",
           OPEN_SEARCH_COLLECTION_ENDPOINT:
             props.openSearchVector?.openSearchCollectionEndpoint ?? "",
+          COGNITO_USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -101,6 +104,16 @@ export class DeleteWorkspace extends Construct {
         ]
       );
     }
+
+    const cognitoPolicyStatement = new iam.PolicyStatement({
+      actions: [
+        "cognito-idp:DeleteGroup",
+      ],
+      resources: [`arn:aws:cognito-idp:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:userpool/${props.userPool.userPoolId}`],
+    });
+
+    // Attach the policy statement to the Lambda function's role
+    deleteFunction.addToRolePolicy(cognitoPolicyStatement);
 
     props.dataImport.uploadBucket.grantReadWrite(deleteFunction);
     props.dataImport.processingBucket.grantReadWrite(deleteFunction);

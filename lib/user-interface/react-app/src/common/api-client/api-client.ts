@@ -9,6 +9,7 @@ import { SessionsClient } from "./sessions-client";
 import { SemanticSearchClient } from "./semantic-search-client";
 import { DocumentsClient } from "./documents-client";
 import { KendraClient } from "./kendra-client";
+import { UsersClient as AdminUsersClient } from "./users-client";
 import { UserFeedbackClient } from "./user-feedback-client";
 import { BedrockKBClient } from "./kb-client";
 
@@ -25,6 +26,7 @@ export class ApiClient {
   private _kendraClient?: KendraClient;
   private _userFeedbackClient?: UserFeedbackClient;
   private _bedrockKBClient?: BedrockKBClient;
+  private _adminUsersClient?: AdminUsersClient;
 
   public get health() {
     if (!this._healthClient) {
@@ -112,6 +114,14 @@ export class ApiClient {
     }
 
     return this._bedrockKBClient;
+  }
+  
+  public get adminUsers() {
+    if (!this._adminUsersClient) {
+      this._adminUsersClient = new AdminUsersClient();
+    }
+
+    return this._adminUsersClient;
   }
 
   public get userFeedback() {

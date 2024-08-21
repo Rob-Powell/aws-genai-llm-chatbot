@@ -1,5 +1,7 @@
 import * as path from "path";
 import * as cdk from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { SystemConfig } from "../../shared/types";
 import { Shared } from "../../shared";
@@ -16,6 +18,7 @@ export interface CreateAuroraWorkspaceProps {
   readonly shared: Shared;
   readonly ragDynamoDBTables: RagDynamoDBTables;
   readonly dbCluster: rds.DatabaseCluster;
+  readonly userPool: cognito.UserPool;
 }
 
 export class CreateAuroraWorkspace extends Construct {
@@ -47,6 +50,7 @@ export class CreateAuroraWorkspace extends Construct {
             props.ragDynamoDBTables.workspacesTable.tableName,
           WORKSPACES_BY_OBJECT_TYPE_INDEX_NAME:
             props.ragDynamoDBTables.workspacesByObjectTypeIndexName,
+          COGNITO_USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -54,6 +58,16 @@ export class CreateAuroraWorkspace extends Construct {
     props.dbCluster.secret?.grantRead(createFunction);
     props.dbCluster.connections.allowDefaultPortFrom(createFunction);
     props.ragDynamoDBTables.workspacesTable.grantReadWriteData(createFunction);
+
+    const cognitoPolicyStatement = new iam.PolicyStatement({
+      actions: [
+        "cognito-idp:CreateGroup",
+      ],
+      resources: [`arn:aws:cognito-idp:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:userpool/${props.userPool.userPoolId}`],
+    });
+
+    // Attach the policy statement to the Lambda function's role
+    createFunction.addToRolePolicy(cognitoPolicyStatement);
 
     const handleError = new tasks.DynamoUpdateItem(this, "HandleError", {
       table: props.ragDynamoDBTables.workspacesTable,

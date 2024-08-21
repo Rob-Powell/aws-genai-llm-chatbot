@@ -5,6 +5,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as oss from "aws-cdk-lib/aws-opensearchserverless";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import * as path from "path";
 import { Shared } from "../../shared";
@@ -19,6 +20,7 @@ export interface CreateOpenSearchWorkspaceProps {
   readonly openSearchCollectionName: string;
   readonly openSearchCollection: oss.CfnCollection;
   readonly collectionEndpoint: string;
+  readonly userPool: cognito.UserPool;
 }
 
 export class CreateOpenSearchWorkspace extends Construct {
@@ -57,6 +59,7 @@ export class CreateOpenSearchWorkspace extends Construct {
           OPEN_SEARCH_COLLECTION_NAME: props.openSearchCollectionName,
           OPEN_SEARCH_COLLECTION_ENDPOINT: props.collectionEndpoint,
           OPEN_SEARCH_COLLECTION_ENDPOINT_PORT: "443",
+          COGNITO_USER_POOL_ID: props.userPool.userPoolId,
         },
       }
     );
@@ -72,6 +75,15 @@ export class CreateOpenSearchWorkspace extends Construct {
         resources: [props.openSearchCollection.attrArn],
       })
     );
+    const cognitoPolicyStatement = new iam.PolicyStatement({
+      actions: [
+        "cognito-idp:CreateGroup",
+      ],
+      resources: [`arn:aws:cognito-idp:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:userpool/${props.userPool.userPoolId}`],
+    });
+
+    // Attach the policy statement to the Lambda function's role
+    createFunction.addToRolePolicy(cognitoPolicyStatement);
 
     const handleError = new tasks.DynamoUpdateItem(this, "HandleError", {
       table: props.ragDynamoDBTables.workspacesTable,

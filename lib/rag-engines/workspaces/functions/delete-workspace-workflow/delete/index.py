@@ -2,6 +2,7 @@ import genai_core.types
 import genai_core.workspaces
 import genai_core.aurora.delete
 import genai_core.opensearch.delete
+import genai_core.admin_user_management
 import genai_core.kendra.delete
 import genai_core.bedrock_kb.delete
 from aws_lambda_powertools import Logger
@@ -27,3 +28,5 @@ def lambda_handler(event, context: LambdaContext):
         genai_core.bedrock_kb.delete.delete_workspace(workspace)
     else:
         raise genai_core.types.CommonError("Workspace engine not supported")
+    genai_core.admin_user_management.delete_cognito_group(f"workspace-read-{workspace_id}")
+    genai_core.admin_user_management.delete_cognito_group(f"workspace-write-{workspace_id}")

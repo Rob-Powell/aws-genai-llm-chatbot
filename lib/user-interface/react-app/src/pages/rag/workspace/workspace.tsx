@@ -13,6 +13,8 @@ import BaseAppLayout from "../../../components/base-app-layout";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCallback, useContext, useEffect, useState } from "react";
 import { AppContext } from "../../../common/app-context";
+import { UserContext } from "../../../common/user-context";
+import { UserRole } from "../../../common/types";
 import { ApiClient } from "../../../common/api-client/api-client";
 import { Utils } from "../../../common/utils";
 import RouterButton from "../../../components/wrappers/router-button";
@@ -27,6 +29,7 @@ import { Workspace } from "../../../API";
 
 export default function WorkspacePane() {
   const appContext = useContext(AppContext);
+  const userContext = useContext(UserContext);
   const navigate = useNavigate();
   const onFollow = useOnFollow();
   const { workspaceId } = useParams();
@@ -37,6 +40,18 @@ export default function WorkspacePane() {
     null
   );
   const [globalError, setGlobalError] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (
+      ![
+        UserRole.ADMIN,
+        UserRole.WORKSPACES_MANAGER,
+        UserRole.WORKSPACES_USER,
+      ].includes(userContext.userRole)
+    ) {
+      navigate("/");
+    }
+  }, [userContext, navigate]);
 
   const getWorkspace = useCallback(async () => {
     if (!appContext || !workspaceId) return;
@@ -104,13 +119,18 @@ export default function WorkspacePane() {
                     Semantic search
                   </RouterButton>
                   {workspace?.kendraIndexExternal ||
-                  workspace?.knowledgeBaseExternal ? (
+                  workspace?.knowledgeBaseExternal ||
+                  ![UserRole.ADMIN, UserRole.WORKSPACES_MANAGER].includes(
+                    userContext.userRole
+                  ) ? (
                     <></>
                   ) : (
                     <RouterButtonDropdown
                       disabled={
                         (workspace?.kendraIndexExternal ||
-                          workspace?.knowledgeBaseExternal) ??
+                          workspace?.knowledgeBaseExternal || ![UserRole.ADMIN, UserRole.WORKSPACES_MANAGER].includes(
+                    userContext.userRole
+                  )) ??
                         false
                       }
                       items={[

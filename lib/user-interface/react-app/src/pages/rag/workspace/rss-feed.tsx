@@ -25,7 +25,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { multiselectOptions, SelectOption } from "../add-data/types";
 import { generateSelectedOptions } from "../add-data/utils";
 import { useCallback, useContext, useEffect, useState } from "react";
-import { DocumentSubscriptionStatus } from "../../../common/types";
+import { DocumentSubscriptionStatus, UserRole } from "../../../common/types";
 import { AppContext } from "../../../common/app-context";
 import { ApiClient } from "../../../common/api-client/api-client";
 import { CHATBOT_NAME, Labels } from "../../../common/constants";
@@ -34,9 +34,11 @@ import { DateTime } from "luxon";
 import { Utils } from "../../../common/utils";
 import { useForm } from "../../../common/hooks/use-form";
 import { Workspace, Document, DocumentsResult } from "../../../API";
+import { UserContext } from "../../../common/user-context";
 
 export default function RssFeed() {
   const appContext = useContext(AppContext);
+  const userContext = useContext(UserContext);
   const navigate = useNavigate();
   const onFollow = useOnFollow();
   const { workspaceId, feedId } = useParams();
@@ -55,6 +57,18 @@ export default function RssFeed() {
     useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [postsLoading, setPostsLoading] = useState(true);
+
+  useEffect(() => {
+    if (
+      ![
+        UserRole.ADMIN,
+        UserRole.WORKSPACES_MANAGER,
+        UserRole.WORKSPACES_USER,
+      ].includes(userContext.userRole)
+    ) {
+      navigate("/");
+    }
+  }, [userContext, navigate]);
 
   const getWorkspace = useCallback(async () => {
     if (!appContext || !workspaceId) return;
@@ -260,43 +274,35 @@ export default function RssFeed() {
       content={
         <ContentLayout
           header={
-            <Header
-              variant="h1"
-              actions={
-                <SpaceBetween size="m" direction="horizontal">
-                  <Button
-                    onClick={() =>
-                      toggleRssSubscription(
-                        rssSubscriptionStatus ==
-                          DocumentSubscriptionStatus.ENABLED
-                          ? "disable"
-                          : "enable"
-                      )
-                    }
-                  >
-                    {rssSubscriptionStatus == DocumentSubscriptionStatus.ENABLED
-                      ? "Disable RSS Feed Subscription"
-                      : "Enable RSS Feed Subscription"}
-                  </Button>
-                  <Button
-                    onClick={() => setIsEditingCrawlerSettings(true)}
-                    disabled={
-                      isEditingCrawlerSettings ||
+            [UserRole.ADMIN, UserRole.WORKSPACES_MANAGER].includes(
+              userContext.userRole
+            ) ? (
+              <SpaceBetween size="m" direction="horizontal">
+                <Button
+                  onClick={() =>
+                    toggleRssSubscription(
                       rssSubscriptionStatus ==
-                        DocumentSubscriptionStatus.DISABLED
-                    }
-                  >
-                    Edit Website Crawler Configuration
-                  </Button>
-                </SpaceBetween>
-              }
-            >
-              {loading ? (
-                <StatusIndicator type="loading">Loading...</StatusIndicator>
-              ) : (
-                workspace?.name
-              )}
-            </Header>
+                        DocumentSubscriptionStatus.ENABLED
+                        ? "disable"
+                        : "enable"
+                    )
+                  }
+                >
+                  {rssSubscriptionStatus == DocumentSubscriptionStatus.ENABLED
+                    ? "Disable RSS Feed Subscription"
+                    : "Enable RSS Feed Subscription"}
+                </Button>
+                <Button
+                  onClick={() => setIsEditingCrawlerSettings(true)}
+                  disabled={
+                    isEditingCrawlerSettings ||
+                    rssSubscriptionStatus == DocumentSubscriptionStatus.DISABLED
+                  }
+                >
+                  Edit Website Crawler Configuration
+                </Button>
+              </SpaceBetween>
+            ) : null
           }
         >
           <SpaceBetween size="l">
@@ -448,7 +454,7 @@ export default function RssFeed() {
               </SpaceBetween>
             </Container>
             <Table
-              loading={postsLoading}
+              loading={postsLoading || loading}
               loadingText={`Loading RSS Subscription Posts`}
               columnDefinitions={[
                 {

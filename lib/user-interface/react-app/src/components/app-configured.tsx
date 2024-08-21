@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Authenticator,
   Heading,
@@ -10,9 +10,10 @@ import {
   View,
 } from "@aws-amplify/ui-react";
 import App from "../app";
-import { Amplify, Auth } from "aws-amplify";
-import { AppConfig } from "../common/types";
+import { Amplify, Auth, Hub } from "aws-amplify";
+import { AppConfig, UserRole } from "../common/types";
 import { AppContext } from "../common/app-context";
+import { UserContext, userContextDefault } from "../common/user-context";
 import { Alert, StatusIndicator } from "@cloudscape-design/components";
 import { StorageHelper } from "../common/helpers/storage-helper";
 import { Mode } from "@cloudscape-design/global-styles";
@@ -24,6 +25,46 @@ export default function AppConfigured() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [error, setError] = useState<boolean | null>(null);
   const [theme, setTheme] = useState(StorageHelper.getTheme());
+  const [userRole, setUserRole] = useState(userContextDefault.userRole);
+  const [userEmail, setUserEmail] = useState(userContextDefault.userEmail);
+
+  const updateUserContext = useCallback(
+    (event: string) => {
+      if (event === "signIn" || event === "configured") {
+        if (userRole === UserRole.UNDEFINED || userEmail === null) {
+          Auth.currentAuthenticatedUser()
+            .then((user) => {
+              const userGroups = user.signInUserSession.idToken.payload['cognito:groups'] as string[] | undefined
+              if (userGroups !== undefined && userGroups.length > 0) {
+                // A user can be assigned multiple roles, both in and out of Chatbot scope
+                // The following order of checking is based on permission scope to ensure the highest permission assigned is set
+                if (userGroups.includes(UserRole.ADMIN)) {
+                  setUserRole(UserRole.ADMIN);
+                } else if (userGroups.includes(UserRole.WORKSPACES_MANAGER)) {
+                  setUserRole(UserRole.WORKSPACES_MANAGER);
+                } else if (userGroups.includes(UserRole.WORKSPACES_USER)) {
+                  setUserRole(UserRole.WORKSPACES_USER);
+                } else if (userGroups.includes(UserRole.CHATBOT_USER)) {
+                  setUserRole(UserRole.CHATBOT_USER);
+                } else {
+                  setUserRole(UserRole.UNDEFINED);
+                }
+                if (user.attributes.email !== undefined) {
+                  setUserEmail(user.attributes.email);
+                }
+              }
+            })
+            .catch(() => {
+              setUserRole(UserRole.UNDEFINED);
+            });
+        }
+      } else if (event === "signOut") {
+        setUserRole(UserRole.UNDEFINED);
+        setUserEmail("");
+      }
+    },
+    [userRole, setUserRole, setUserEmail, userEmail]
+  );
 
   useEffect(() => {
     (async () => {
@@ -73,6 +114,12 @@ export default function AppConfigured() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    Hub.listen("auth", (authMessage) => {
+      updateUserContext(authMessage.payload.event);
+    });
+  }, [updateUserContext]);
 
   useEffect(() => {
     const observer = new MutationObserver((mutations) => {
@@ -144,6 +191,9 @@ export default function AppConfigured() {
 
   return (
     <AppContext.Provider value={config}>
+      <UserContext.Provider
+        value={{ setUserRole, userRole, setUserEmail, userEmail }}
+      >
       <ThemeProvider
         theme={{
           name: "default-theme",
@@ -198,6 +248,7 @@ export default function AppConfigured() {
           <App />
         </Authenticator>
       </ThemeProvider>
+      </UserContext.Provider>
     </AppContext.Provider>
   );
 }

@@ -5,6 +5,7 @@ import {
   Header,
   Alert,
 } from "@cloudscape-design/components";
+import { UserRole } from "../../../common/types";
 import { EnginesPageHeader } from "./engines-page-header";
 import { ApiClient } from "../../../common/api-client/api-client";
 import { AppContext } from "../../../common/app-context";
@@ -13,6 +14,8 @@ import useOnFollow from "../../../common/hooks/use-on-follow";
 import BaseAppLayout from "../../../components/base-app-layout";
 import { CHATBOT_NAME } from "../../../common/constants";
 import { RagEngine } from "../../../API";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../../../common/user-context";
 import { Utils } from "../../../common/utils";
 
 const CARD_DEFINITIONS = {
@@ -41,10 +44,24 @@ const CARD_DEFINITIONS = {
 
 export default function Engines() {
   const onFollow = useOnFollow();
+  const navigate = useNavigate();
   const appContext = useContext(AppContext);
+  const userContext = useContext(UserContext);
   const [data, setData] = useState<RagEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalError, setGlobalError] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (
+      ![
+        UserRole.ADMIN,
+        UserRole.WORKSPACES_MANAGER,
+        UserRole.WORKSPACES_USER,
+      ].includes(userContext.userRole)
+    ) {
+      navigate("/");
+    }
+  }, [userContext, navigate]);
 
   useEffect(() => {
     if (!appContext?.config) return;
