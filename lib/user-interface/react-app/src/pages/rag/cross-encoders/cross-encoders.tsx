@@ -125,6 +125,7 @@ export default function CrossEncoders() {
         setCrossEncoderModelsStatus("finished");
       } catch (error) {
         console.error(Utils.getErrorMessage(error));
+        setGlobalError(Utils.getErrorMessage(error));
         setCrossEncoderModelsStatus("error");
       }
     })();

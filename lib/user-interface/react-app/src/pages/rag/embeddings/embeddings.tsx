@@ -125,6 +125,7 @@ export default function Embeddings() {
         setEmbeddingsModelsStatus("finished");
       } catch (error) {
         console.error(Utils.getErrorMessage(error));
+        setGlobalError(Utils.getErrorMessage(error));
         setEmbeddingsModelsStatus("error");
       }
     })();

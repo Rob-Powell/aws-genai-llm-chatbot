@@ -1,6 +1,5 @@
 import genai_core.parameters
 import genai_core.kendra
-from pydantic import BaseModel
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler.appsync import Router
 from genai_core.auth import UserPermissions
@@ -9,10 +8,6 @@ tracer = Tracer()
 router = Router()
 logger = Logger()
 permissions = UserPermissions(router)
-
-
-class KendraDataSynchRequest(BaseModel):
-    workspaceId: str
 
 
 @router.resolver(field_name="listRagEngines")

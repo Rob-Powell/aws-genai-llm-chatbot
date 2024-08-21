@@ -1,4 +1,5 @@
 import {
+  Alert,
   Pagination,
   PropertyFilter,
   Table,
@@ -25,6 +26,7 @@ export default function WorkspacesTable() {
   const appContext = useContext(AppContext);
   const userContext = useContext(UserContext)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [globalError, setGlobalError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const {
     items,
@@ -65,11 +67,13 @@ export default function WorkspacesTable() {
 
     const apiClient = new ApiClient(appContext);
     try {
+      setGlobalError(undefined);
       const result = await apiClient.workspaces.getWorkspaces();
 
       setWorkspaces(result.data!.listWorkspaces);
     } catch (error) {
       console.error(Utils.getErrorMessage(error));
+      setGlobalError(Utils.getErrorMessage(error));
     }
 
     setLoading(false);
@@ -82,40 +86,51 @@ export default function WorkspacesTable() {
   }, [appContext, getWorkspaces]);
 
   return (
-    <Table
-      {...collectionProps}
-      items={items}
-      columnDefinitions={WorkspacesColumnDefinitions}
-      selectionType="single"
-      variant="full-page"
-      stickyHeader={true}
-      resizableColumns={true}
-      header={
-        <WorkspacesPageHeader
-          selectedWorkspaces={collectionProps.selectedItems ?? []}
-          getWorkspaces={getWorkspaces}
-          counter={
-            loading
-              ? undefined
-              : TextHelper.getHeaderCounterText(
-                workspaces,
-                collectionProps.selectedItems
-              )
-          }
-        />
-      }
-      loading={loading}
-      loadingText="Loading Workspaces"
-      filter={
-        <PropertyFilter
-          {...propertyFilterProps}
-          i18nStrings={PropertyFilterI18nStrings}
-          filteringPlaceholder={"Filter Workspaces"}
-          countText={TextHelper.getTextFilterCounterText(filteredItemsCount)}
-          expandToViewport={true}
-        />
-      }
-      pagination={<Pagination {...paginationProps} />}
-    />
+    <>
+      {globalError && (
+        <Alert
+          statusIconAriaLabel="Error"
+          type="error"
+          header="Unable to load the workspaces."
+        >
+          {globalError}
+        </Alert>
+      )}
+      <Table
+        {...collectionProps}
+        items={items}
+        columnDefinitions={WorkspacesColumnDefinitions}
+        selectionType="single"
+        variant="full-page"
+        stickyHeader={true}
+        resizableColumns={true}
+        header={
+          <WorkspacesPageHeader
+            selectedWorkspaces={collectionProps.selectedItems ?? []}
+            getWorkspaces={getWorkspaces}
+            counter={
+              loading
+                ? undefined
+                : TextHelper.getHeaderCounterText(
+                    workspaces,
+                    collectionProps.selectedItems
+                  )
+            }
+          />
+        }
+        loading={loading}
+        loadingText="Loading Workspaces"
+        filter={
+          <PropertyFilter
+            {...propertyFilterProps}
+            i18nStrings={PropertyFilterI18nStrings}
+            filteringPlaceholder={"Filter Workspaces"}
+            countText={TextHelper.getTextFilterCounterText(filteredItemsCount)}
+            expandToViewport={true}
+          />
+        }
+        pagination={<Pagination {...paginationProps} />}
+      />
+    </>
   );
 }
